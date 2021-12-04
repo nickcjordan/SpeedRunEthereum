@@ -50,7 +50,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.kovan; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -252,6 +252,11 @@ function App(props) {
   );
   if (DEBUG) console.log("💵 stakerContractBalance", stakerContractBalance);
 
+  //debug
+  const debugMessage = useContractReader(readContracts, "Staker", "debugMessage");
+  const withdrawOpen = useContractReader(readContracts, "Staker", "openForWithdraw");
+  const contractComplete = useContractReader(readContracts, "Staker", "contractComplete");
+
   // ** keep track of total 'threshold' needed of ETH
   const threshold = useContractReader(readContracts, "Staker", "threshold");
   console.log("💵 threshold:", threshold);
@@ -287,7 +292,7 @@ function App(props) {
       </div>
     );
   }
-
+      
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
   console.log("🏷 Resolved austingriffith.eth as:", addressFromENS)
@@ -467,7 +472,7 @@ function App(props) {
           onClick={() => {
             faucetTx({
               to: address,
-              value: ethers.utils.parseEther("0.01"),
+              value: ethers.utils.parseEther("4.0"),
             });
             setFaucetClicked(true);
           }}
@@ -510,27 +515,34 @@ function App(props) {
         <Switch>
           <Route exact path="/">
             {completeDisplay}
+            {debugMessage!=null && debugMessage.length > 0 &&
+              <div style={{ padding: 64, backgroundColor: "#74CFE9", fontWeight: "bolder" }}>
+                {debugMessage}
+              </div>
+            }
+            
 
             <div style={{ padding: 8, marginTop: 32 }}>
               <div>Staker Contract:</div>
               <Address value={readContracts && readContracts.Staker && readContracts.Staker.address} />
             </div>
-
+            {!complete && 
             <div style={{ padding: 8, marginTop: 32 }}>
               <div>Timeleft:</div>
               {timeLeft && humanizeDuration(timeLeft.toNumber() * 1000)}
             </div>
-
+            }
+            {!complete && 
             <div style={{ padding: 8 }}>
               <div>Total staked:</div>
               <Balance balance={stakerContractBalance} fontSize={64} />/<Balance balance={threshold} fontSize={64} />
             </div>
-
+          }
             <div style={{ padding: 8 }}>
               <div>You staked:</div>
               <Balance balance={balanceStaked} fontSize={64} />
             </div>
-
+          { withdrawOpen || (!complete && !contractComplete) && 
             <div style={{ padding: 8 }}>
               <Button
                 type={"default"}
@@ -538,32 +550,70 @@ function App(props) {
                   tx(writeContracts.Staker.execute());
                 }}
               >
-                📡 Execute!
+                📡 Check contract status
               </Button>
             </div>
-
-            <div style={{ padding: 8 }}>
+            }
+            { (balanceStaked > 0) && withdrawOpen && <div style={{ padding: 8 }}>
               <Button
                 type={"default"}
                 onClick={() => {
                   tx(writeContracts.Staker.withdraw(address));
                 }}
               >
-                🏧 Withdraw
+                🏧 Withdraw funds
+              </Button>
+            </div> }
+          {timeLeft && (timeLeft.toNumber() > 0) && !complete && !contractComplete && 
+            <div style={{ padding: 8 }}>
+              <Button
+                type={balanceStaked ? "success" : "primary"}
+                onClick={() => {
+                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.0005") }));
+                }}
+              >
+                🥩 Stake 0.0005 Ether!
+              </Button>
+            </div>
+          }
+          {timeLeft && (timeLeft.toNumber() > 0) && !complete && !contractComplete && 
+            <div style={{ padding: 8 }}>
+              <Button
+                type={balanceStaked ? "success" : "primary"}
+                onClick={() => {
+                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.0001") }));
+                }}
+              >
+                🥩 Stake 0.0001 Ether!
+              </Button>
+            </div>
+            }
+
+            <div style={{ padding: 8}}>
+              <Button
+                style={{backgroundColor: "#ABE2F1"}}
+                type={"default"}
+                onClick={() => {
+                  tx(writeContracts.Staker.resetContractDeadline());
+                }}
+              >
+                DEBUG :: Reset contract deadline
               </Button>
             </div>
 
             <div style={{ padding: 8 }}>
               <Button
-                type={balanceStaked ? "success" : "primary"}
+                type={"default"}
+                style={{backgroundColor: "#ABE2F1"}}
                 onClick={() => {
-                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.5") }));
+                  tx(writeContracts.Staker.resetContractCompletion());
                 }}
               >
-                🥩 Stake 0.5 ether!
+                DEBUG :: Reset contract completion
               </Button>
             </div>
 
+            
             {/*
                 🎛 this scaffolding is full of commonly used components
                 this <Contract/> component will automatically parse your ABI
@@ -637,7 +687,7 @@ function App(props) {
 
       <div style={{ marginTop: 32, opacity: 0.5 }}>
         {/* Add your address here */}
-        Created by <Address value={"Your...address"} ensProvider={mainnetProvider} fontSize={16} />
+        Created by <Address value={"0x78cD73Ec778B4821DedE5Ee8e417D682F6794eF5"} ensProvider={mainnetProvider} fontSize={16} />
       </div>
 
       <div style={{ marginTop: 32, opacity: 0.5 }}>
@@ -662,7 +712,7 @@ function App(props) {
                 window.open("https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA");
               }}
               size="large"
-              shape="round"
+              shape="round" 
             >
               <span style={{ marginRight: 8 }} role="img" aria-label="support">
                 💬
